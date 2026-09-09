@@ -66,3 +66,6 @@ export interface DailyLogDay {
   coreLegsAndPull: PhysicalTrainingGroup[];
   eveningManifestation: string;
 }
+
+export type StudyTargetStatus = 'green' | 'yellow' | 'red';
+export type PhysicalTargetStatus = 'green' | 'red';

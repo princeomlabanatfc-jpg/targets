@@ -18,8 +18,13 @@ interface NavbarProps {
   onSelectSection: (id: string) => void;
   completedAcademicCount: number;
   totalAcademicCount: number;
+  greenAcademicCount?: number;
+  yellowAcademicCount?: number;
+  redAcademicCount?: number;
   completedPhysicalCount: number;
   totalPhysicalCount: number;
+  greenPhysicalCount?: number;
+  redPhysicalCount?: number;
   todayDayNumber?: number;
 }
 
@@ -28,8 +33,13 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSelectSection,
   completedAcademicCount,
   totalAcademicCount,
+  greenAcademicCount = 0,
+  yellowAcademicCount = 0,
+  redAcademicCount = 0,
   completedPhysicalCount,
   totalPhysicalCount,
+  greenPhysicalCount = 0,
+  redPhysicalCount = 0,
   todayDayNumber,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -137,28 +147,65 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Academic Targets Tracker */}
             {totalAcademicCount > 0 && (
               <div
-                title="Academic Targets Completed"
-                className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900/80 border border-slate-700/60 text-xs font-mono text-slate-300"
+                title={`Academic: ${greenAcademicCount} on day (green), ${yellowAcademicCount} on another day (yellow), ${redAcademicCount} not done (red)`}
+                className="hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-900/80 border border-slate-700/60 text-xs font-mono text-slate-300"
               >
-                <Brain className="w-3.5 h-3.5 text-sky-400" />
-                <span>
-                  <strong className="text-sky-400">{completedAcademicCount}</strong>
-                  <span className="text-slate-500">/{totalAcademicCount}</span>
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <Brain className="w-3.5 h-3.5 text-sky-400" />
+                  <span>
+                    <strong className="text-sky-400">{completedAcademicCount}</strong>
+                    <span className="text-slate-500">/{totalAcademicCount}</span>
+                  </span>
+                </div>
+                {(greenAcademicCount > 0 || yellowAcademicCount > 0 || redAcademicCount > 0) && (
+                  <div className="flex items-center gap-1 border-l border-slate-800 pl-1.5 text-[10px]">
+                    {greenAcademicCount > 0 && (
+                      <span className="text-emerald-400 font-bold" title="Green: Done on target day">
+                        🟢{greenAcademicCount}
+                      </span>
+                    )}
+                    {yellowAcademicCount > 0 && (
+                      <span className="text-amber-400 font-bold" title="Yellow: Done another day">
+                        🟡{yellowAcademicCount}
+                      </span>
+                    )}
+                    {redAcademicCount > 0 && (
+                      <span className="text-rose-400 font-bold" title="Red: Not done">
+                        🔴{redAcademicCount}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
             {/* Physical Targets Tracker */}
             {totalPhysicalCount > 0 && (
               <div
-                title="Physical Training Targets Completed"
-                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900/80 border border-slate-700/60 text-xs font-mono text-slate-300"
+                title={`Physical: ${greenPhysicalCount} done (green), ${redPhysicalCount} not done (red)`}
+                className="hidden sm:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-900/80 border border-slate-700/60 text-xs font-mono text-slate-300"
               >
-                <Dumbbell className="w-3.5 h-3.5 text-emerald-400" />
-                <span>
-                  <strong className="text-emerald-400">{completedPhysicalCount}</strong>
-                  <span className="text-slate-500">/{totalPhysicalCount}</span>
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <Dumbbell className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>
+                    <strong className="text-emerald-400">{completedPhysicalCount}</strong>
+                    <span className="text-slate-500">/{totalPhysicalCount}</span>
+                  </span>
+                </div>
+                {(greenPhysicalCount > 0 || redPhysicalCount > 0) && (
+                  <div className="flex items-center gap-1 border-l border-slate-800 pl-1.5 text-[10px]">
+                    {greenPhysicalCount > 0 && (
+                      <span className="text-emerald-400 font-bold" title="Green: Done">
+                        🟢{greenPhysicalCount}
+                      </span>
+                    )}
+                    {redPhysicalCount > 0 && (
+                      <span className="text-rose-400 font-bold" title="Red: Not done">
+                        🔴{redPhysicalCount}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

@@ -10,6 +10,13 @@ import { dailyLogs } from './data/dailyLogsData';
 import { ArrowUp, Award, Shield, CheckCircle } from 'lucide-react';
 import { getTodayDayNumber, getTodayDateString } from './utils/dateUtils';
 import { STORAGE_KEYS, loadInstantStorage, saveInstantStorage } from './utils/storage';
+import { StudyTargetStatus, PhysicalTargetStatus } from './types';
+import {
+  getStudyTargetStatus,
+  getPhysicalTargetStatus,
+  getNextStudyStatus,
+  getNextPhysicalStatus,
+} from './utils/targetStatus';
 
 export default function App() {
   const [activeSection, setActiveSection] = useState<string>('vision');
@@ -22,12 +29,14 @@ export default function App() {
   );
 
   // Direct instant persistence for individual day academic targets (Section 7)
-  const [checkedDayTargets, setCheckedDayTargets] = useState<Record<string, boolean>>(() =>
+  // Supports 'green' (done on target day), 'yellow' (done another day), 'red' (not done)
+  const [checkedDayTargets, setCheckedDayTargets] = useState<Record<string, StudyTargetStatus | boolean>>(() =>
     loadInstantStorage(STORAGE_KEYS.DAY_TARGETS, {})
   );
 
   // Direct instant persistence for individual day physical training targets
-  const [checkedPhysicalTargets, setCheckedPhysicalTargets] = useState<Record<string, boolean>>(() =>
+  // Supports 'green' (done), 'red' (not done)
+  const [checkedPhysicalTargets, setCheckedPhysicalTargets] = useState<Record<string, PhysicalTargetStatus | boolean>>(() =>
     loadInstantStorage(STORAGE_KEYS.PHYSICAL_TARGETS, {})
   );
 
@@ -57,17 +66,63 @@ export default function App() {
     }
   };
 
+  // Academic / Study Target Handlers
   const handleToggleDayTarget = (key: string) => {
     setCheckedDayTargets((prev) => {
-      const next = { ...prev, [key]: !prev[key] };
+      const current = getStudyTargetStatus(prev[key]);
+      const nextStatus = getNextStudyStatus(current);
+      const next = { ...prev };
+      if (nextStatus === null) {
+        delete next[key];
+      } else {
+        next[key] = nextStatus;
+      }
       saveInstantStorage(STORAGE_KEYS.DAY_TARGETS, next);
       return next;
     });
   };
 
+  const handleSetDayTargetStatus = (key: string, status: StudyTargetStatus | null) => {
+    setCheckedDayTargets((prev) => {
+      const current = getStudyTargetStatus(prev[key]);
+      const next = { ...prev };
+      // If clicking same status, clear it back to unassigned
+      if (current === status || status === null) {
+        delete next[key];
+      } else {
+        next[key] = status;
+      }
+      saveInstantStorage(STORAGE_KEYS.DAY_TARGETS, next);
+      return next;
+    });
+  };
+
+  // Physical Training Target Handlers
   const handleTogglePhysicalTarget = (key: string) => {
     setCheckedPhysicalTargets((prev) => {
-      const next = { ...prev, [key]: !prev[key] };
+      const current = getPhysicalTargetStatus(prev[key]);
+      const nextStatus = getNextPhysicalStatus(current);
+      const next = { ...prev };
+      if (nextStatus === null) {
+        delete next[key];
+      } else {
+        next[key] = nextStatus;
+      }
+      saveInstantStorage(STORAGE_KEYS.PHYSICAL_TARGETS, next);
+      return next;
+    });
+  };
+
+  const handleSetPhysicalTargetStatus = (key: string, status: PhysicalTargetStatus | null) => {
+    setCheckedPhysicalTargets((prev) => {
+      const current = getPhysicalTargetStatus(prev[key]);
+      const next = { ...prev };
+      // If clicking same status, clear it back to unassigned
+      if (current === status || status === null) {
+        delete next[key];
+      } else {
+        next[key] = status;
+      }
       saveInstantStorage(STORAGE_KEYS.PHYSICAL_TARGETS, next);
       return next;
     });
@@ -89,16 +144,35 @@ export default function App() {
     });
   };
 
-  // Compute total completed academic targets across all 50 days
+  // Compute breakdown for academic targets
   const totalAcademicCount = dailyLogs.reduce((acc, d) => acc + d.academicTargets.length, 0);
-  const completedAcademicCount = Object.values(checkedDayTargets).filter(Boolean).length;
+  let greenAcademicCount = 0;
+  let yellowAcademicCount = 0;
+  let redAcademicCount = 0;
 
-  // Compute total completed physical targets across all 50 days
+  Object.values(checkedDayTargets).forEach((val) => {
+    const status = getStudyTargetStatus(val);
+    if (status === 'green') greenAcademicCount++;
+    else if (status === 'yellow') yellowAcademicCount++;
+    else if (status === 'red') redAcademicCount++;
+  });
+  // Completed includes both on-day (green) and another-day (yellow)
+  const completedAcademicCount = greenAcademicCount + yellowAcademicCount;
+
+  // Compute breakdown for physical targets
   const totalPhysicalCount = dailyLogs.reduce(
     (acc, d) => acc + d.cardioAndPushUps.length + d.coreLegsAndPull.length,
     0
   );
-  const completedPhysicalCount = Object.values(checkedPhysicalTargets).filter(Boolean).length;
+  let greenPhysicalCount = 0;
+  let redPhysicalCount = 0;
+
+  Object.values(checkedPhysicalTargets).forEach((val) => {
+    const status = getPhysicalTargetStatus(val);
+    if (status === 'green') greenPhysicalCount++;
+    else if (status === 'red') redPhysicalCount++;
+  });
+  const completedPhysicalCount = greenPhysicalCount;
 
   const scrollToSection = (sectionId: string) => {
     setActiveSection(sectionId);
@@ -143,8 +217,13 @@ export default function App() {
         onSelectSection={scrollToSection}
         completedAcademicCount={completedAcademicCount}
         totalAcademicCount={totalAcademicCount}
+        greenAcademicCount={greenAcademicCount}
+        yellowAcademicCount={yellowAcademicCount}
+        redAcademicCount={redAcademicCount}
         completedPhysicalCount={completedPhysicalCount}
         totalPhysicalCount={totalPhysicalCount}
+        greenPhysicalCount={greenPhysicalCount}
+        redPhysicalCount={redPhysicalCount}
         todayDayNumber={todayDayNumber}
       />
 
@@ -173,8 +252,10 @@ export default function App() {
         <DailyLogsSection
           checkedDayTargets={checkedDayTargets}
           onToggleDayTarget={handleToggleDayTarget}
+          onSetDayTargetStatus={handleSetDayTargetStatus}
           checkedPhysicalTargets={checkedPhysicalTargets}
           onTogglePhysicalTarget={handleTogglePhysicalTarget}
+          onSetPhysicalTargetStatus={handleSetPhysicalTargetStatus}
           checkedMentalTargets={checkedMentalTargets}
           onToggleMentalTarget={handleToggleMentalTarget}
           dayNotes={dayNotes}

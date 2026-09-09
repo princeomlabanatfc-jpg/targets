@@ -21,14 +21,22 @@ import {
   Brain,
   Quote,
   CheckCircle,
+  XCircle,
+  X,
+  Clock,
+  Check,
 } from 'lucide-react';
 import { getTodayDayNumber, getTodayDateString, isDayToday } from '../utils/dateUtils';
+import { StudyTargetStatus, PhysicalTargetStatus } from '../types';
+import { getStudyTargetStatus, getPhysicalTargetStatus } from '../utils/targetStatus';
 
 interface DailyLogsSectionProps {
-  checkedDayTargets: Record<string, boolean>;
+  checkedDayTargets: Record<string, StudyTargetStatus | boolean>;
   onToggleDayTarget: (key: string) => void;
-  checkedPhysicalTargets: Record<string, boolean>;
+  onSetDayTargetStatus?: (key: string, status: StudyTargetStatus | null) => void;
+  checkedPhysicalTargets: Record<string, PhysicalTargetStatus | boolean>;
   onTogglePhysicalTarget: (key: string) => void;
+  onSetPhysicalTargetStatus?: (key: string, status: PhysicalTargetStatus | null) => void;
   checkedMentalTargets: Record<string, boolean>;
   onToggleMentalTarget: (key: string) => void;
   dayNotes: Record<number, string>;
@@ -39,8 +47,10 @@ interface DailyLogsSectionProps {
 export const DailyLogsSection: React.FC<DailyLogsSectionProps> = ({
   checkedDayTargets,
   onToggleDayTarget,
+  onSetDayTargetStatus,
   checkedPhysicalTargets,
   onTogglePhysicalTarget,
+  onSetPhysicalTargetStatus,
   checkedMentalTargets,
   onToggleMentalTarget,
   dayNotes,
@@ -254,63 +264,212 @@ export const DailyLogsSection: React.FC<DailyLogsSectionProps> = ({
           </div>
         )}
 
-        {/* Academic Targets */}
-        {day.academicTargets.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
-              <div className="flex items-center gap-2">
-                <Brain className="w-4 h-4 text-sky-400" />
-                <h4 className="text-xs font-mono uppercase tracking-widest text-sky-400 font-bold">
-                  ACADEMIC TARGETS
-                </h4>
+        {/* Status System Guide Legend */}
+        <div className="p-3 sm:p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 text-xs font-mono space-y-2">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <span className="text-[11px] font-bold tracking-wider text-slate-300 uppercase flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-400" />
+              <span>Target Checkmark System</span>
+            </span>
+            <span className="text-[10px] text-slate-400">Click item to cycle status, or use quick buttons</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 border-t border-slate-800/80 text-[11px]">
+            <div className="flex items-center gap-2 p-1.5 rounded-lg bg-emerald-950/20 border border-emerald-500/20 text-emerald-300">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+              <div>
+                <span className="font-bold">Green:</span> Done on targeted day
               </div>
-              {day.speedPracticeNote && (
-                <span className="flex items-center gap-1 text-xs font-mono text-amber-400 font-semibold">
-                  <Zap className="w-3.5 h-3.5 fill-amber-400" />
-                  <span>Speed practice — important</span>
-                </span>
-              )}
             </div>
+            <div className="flex items-center gap-2 p-1.5 rounded-lg bg-amber-950/20 border border-amber-500/20 text-amber-300">
+              <Clock className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+              <div>
+                <span className="font-bold">Yellow:</span> Done another day (Study only)
+              </div>
+            </div>
+            <div className="flex items-center gap-2 p-1.5 rounded-lg bg-rose-950/20 border border-rose-500/20 text-rose-300">
+              <XCircle className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
+              <div>
+                <span className="font-bold">Red:</span> Not done
+              </div>
+            </div>
+          </div>
+        </div>
 
-            <ul className="space-y-2.5">
-              {day.academicTargets.map((target, idx) => {
-                const targetKey = `day-${day.dayNumber}-target-${idx}`;
-                const isChecked = !!checkedDayTargets[targetKey];
+        {/* Academic Targets */}
+        {day.academicTargets.length > 0 && (() => {
+          let dayGreen = 0;
+          let dayYellow = 0;
+          let dayRed = 0;
 
-                return (
-                  <li
-                    key={idx}
-                    onClick={() => onToggleDayTarget(targetKey)}
-                    className={`flex items-start gap-3 p-2.5 rounded-xl cursor-pointer transition-all ${
-                      isChecked
-                        ? 'bg-emerald-950/20 text-slate-400'
-                        : 'hover:bg-slate-800/50 text-slate-200'
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      className="mt-0.5 flex-shrink-0 text-slate-500 hover:text-amber-400 transition-colors"
-                      aria-label="Toggle target"
-                    >
-                      {isChecked ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400 fill-emerald-400/20" />
-                      ) : (
-                        <Circle className="w-4 h-4 text-slate-500" />
-                      )}
-                    </button>
-                    <span
-                      className={`text-sm font-sans leading-relaxed ${
-                        isChecked ? 'line-through text-slate-400' : 'font-medium'
+          day.academicTargets.forEach((_, idx) => {
+            const st = getStudyTargetStatus(checkedDayTargets[`day-${day.dayNumber}-target-${idx}`]);
+            if (st === 'green') dayGreen++;
+            else if (st === 'yellow') dayYellow++;
+            else if (st === 'red') dayRed++;
+          });
+          const dayCompleted = dayGreen + dayYellow;
+
+          return (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-800/80 flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <Brain className="w-4 h-4 text-sky-400" />
+                  <h4 className="text-xs font-mono uppercase tracking-widest text-sky-400 font-bold">
+                    ACADEMIC TARGETS
+                  </h4>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap text-xs font-mono">
+                  {day.speedPracticeNote && (
+                    <span className="flex items-center gap-1 text-amber-400 font-semibold mr-2">
+                      <Zap className="w-3.5 h-3.5 fill-amber-400" />
+                      <span>Speed practice</span>
+                    </span>
+                  )}
+                  <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-lg text-slate-300">
+                    <span className="font-bold text-sky-400">{dayCompleted}</span>
+                    <span className="text-slate-500">/{day.academicTargets.length} done</span>
+                    {(dayGreen > 0 || dayYellow > 0 || dayRed > 0) && (
+                      <span className="border-l border-slate-800 pl-1.5 flex items-center gap-1.5 text-[10px]">
+                        {dayGreen > 0 && <span className="text-emerald-400" title="Done on day">🟢{dayGreen}</span>}
+                        {dayYellow > 0 && <span className="text-amber-400" title="Done another day">🟡{dayYellow}</span>}
+                        {dayRed > 0 && <span className="text-rose-400" title="Not done">🔴{dayRed}</span>}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <ul className="space-y-2.5">
+                {day.academicTargets.map((target, idx) => {
+                  const targetKey = `day-${day.dayNumber}-target-${idx}`;
+                  const status = getStudyTargetStatus(checkedDayTargets[targetKey]);
+
+                  return (
+                    <li
+                      key={idx}
+                      onClick={() => onToggleDayTarget(targetKey)}
+                      className={`group flex items-start justify-between gap-3 p-3 rounded-xl cursor-pointer transition-all border ${
+                        status === 'green'
+                          ? 'bg-emerald-950/25 border-emerald-500/40 text-slate-300'
+                          : status === 'yellow'
+                          ? 'bg-amber-950/25 border-amber-500/40 text-slate-300'
+                          : status === 'red'
+                          ? 'bg-rose-950/25 border-rose-500/40 text-rose-200'
+                          : 'bg-slate-900/30 hover:bg-slate-800/50 border-slate-800/70 text-slate-200'
                       }`}
                     >
-                      {target}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <button
+                          type="button"
+                          className="mt-0.5 flex-shrink-0 transition-colors"
+                          aria-label={`Target status: ${status || 'unmarked'}`}
+                        >
+                          {status === 'green' ? (
+                            <CheckCircle2 className="w-5 h-5 text-emerald-400 fill-emerald-400/20" />
+                          ) : status === 'yellow' ? (
+                            <CheckCircle2 className="w-5 h-5 text-amber-400 fill-amber-400/20" />
+                          ) : status === 'red' ? (
+                            <XCircle className="w-5 h-5 text-rose-400 fill-rose-400/20" />
+                          ) : (
+                            <Circle className="w-5 h-5 text-slate-500 group-hover:text-amber-400" />
+                          )}
+                        </button>
+                        <div className="space-y-1 min-w-0">
+                          <p
+                            className={`text-sm font-sans leading-relaxed ${
+                              status === 'green'
+                                ? 'line-through text-slate-400'
+                                : status === 'yellow'
+                                ? 'line-through text-amber-200/80'
+                                : status === 'red'
+                                ? 'text-rose-200 font-medium'
+                                : 'font-medium text-slate-200'
+                            }`}
+                          >
+                            {target}
+                          </p>
+
+                          {/* Status Badge */}
+                          {status === 'green' && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                              DONE ON TARGET DAY
+                            </span>
+                          )}
+                          {status === 'yellow' && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                              DONE ANOTHER DAY
+                            </span>
+                          )}
+                          {status === 'red' && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                              NOT DONE
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Quick 1-Click Status Selectors */}
+                      <div
+                        className="flex items-center gap-1 flex-shrink-0 pt-0.5"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => onSetDayTargetStatus?.(targetKey, 'green')}
+                          title="Set Green: Done on target day"
+                          className={`p-1 rounded-lg border transition-all ${
+                            status === 'green'
+                              ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-black shadow-md'
+                              : 'bg-slate-900/80 hover:bg-emerald-950/60 border-slate-700 text-emerald-400/70 hover:text-emerald-300'
+                          }`}
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onSetDayTargetStatus?.(targetKey, 'yellow')}
+                          title="Set Yellow: Done on another day"
+                          className={`p-1 rounded-lg border transition-all ${
+                            status === 'yellow'
+                              ? 'bg-amber-400 text-slate-950 border-amber-300 font-black shadow-md'
+                              : 'bg-slate-900/80 hover:bg-amber-950/60 border-slate-700 text-amber-400/70 hover:text-amber-300'
+                          }`}
+                        >
+                          <Clock className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onSetDayTargetStatus?.(targetKey, 'red')}
+                          title="Set Red: Not done"
+                          className={`p-1 rounded-lg border transition-all ${
+                            status === 'red'
+                              ? 'bg-rose-500 text-white border-rose-400 font-black shadow-md'
+                              : 'bg-slate-900/80 hover:bg-rose-950/60 border-slate-700 text-rose-400/70 hover:text-rose-300'
+                          }`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                        {status && (
+                          <button
+                            type="button"
+                            onClick={() => onSetDayTargetStatus?.(targetKey, null)}
+                            title="Reset to unmarked"
+                            className="p-1 rounded-lg border border-slate-800 bg-slate-900/50 hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors ml-0.5"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })()}
 
         {/* Mental Training with Interactive Target Checkmark */}
         {(() => {
@@ -408,33 +567,47 @@ export const DailyLogsSection: React.FC<DailyLogsSectionProps> = ({
         {(() => {
           const totalDayPhysical = day.cardioAndPushUps.length + day.coreLegsAndPull.length;
           const completedDayCardio = day.cardioAndPushUps.filter(
-            (_, idx) => !!checkedPhysicalTargets[`day-${day.dayNumber}-cardio-${idx}`]
+            (_, idx) => getPhysicalTargetStatus(checkedPhysicalTargets[`day-${day.dayNumber}-cardio-${idx}`]) === 'green'
           ).length;
+          const redDayCardio = day.cardioAndPushUps.filter(
+            (_, idx) => getPhysicalTargetStatus(checkedPhysicalTargets[`day-${day.dayNumber}-cardio-${idx}`]) === 'red'
+          ).length;
+
           const completedDayCore = day.coreLegsAndPull.filter(
-            (_, idx) => !!checkedPhysicalTargets[`day-${day.dayNumber}-core-${idx}`]
+            (_, idx) => getPhysicalTargetStatus(checkedPhysicalTargets[`day-${day.dayNumber}-core-${idx}`]) === 'green'
           ).length;
+          const redDayCore = day.coreLegsAndPull.filter(
+            (_, idx) => getPhysicalTargetStatus(checkedPhysicalTargets[`day-${day.dayNumber}-core-${idx}`]) === 'red'
+          ).length;
+
           const completedDayPhysical = completedDayCardio + completedDayCore;
+          const redDayPhysical = redDayCardio + redDayCore;
           const isAllDayPhysicalCompleted =
             totalDayPhysical > 0 && completedDayPhysical === totalDayPhysical;
 
           return (
             <div className="space-y-3">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-800 flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <Dumbbell className="w-4 h-4 text-emerald-400" />
                   <h4 className="text-xs font-mono uppercase tracking-widest text-emerald-400 font-bold">
                     PHYSICAL TRAINING TARGETS
                   </h4>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span
-                    className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${
+                    className={`text-xs font-mono font-bold px-2 py-0.5 rounded flex items-center gap-1.5 ${
                       isAllDayPhysicalCompleted
                         ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                         : 'bg-slate-900 border border-slate-800 text-slate-400'
                     }`}
                   >
-                    {completedDayPhysical}/{totalDayPhysical} Completed
+                    <span>{completedDayPhysical}/{totalDayPhysical} Completed</span>
+                    {redDayPhysical > 0 && (
+                      <span className="text-rose-400 font-bold border-l border-slate-700 pl-1.5">
+                        🔴 {redDayPhysical} not done
+                      </span>
+                    )}
                   </span>
                 </div>
               </div>
@@ -453,34 +626,42 @@ export const DailyLogsSection: React.FC<DailyLogsSectionProps> = ({
                   <div className="space-y-1.5 text-xs font-mono">
                     {day.cardioAndPushUps.map((item, idx) => {
                       const targetKey = `day-${day.dayNumber}-cardio-${idx}`;
-                      const isChecked = !!checkedPhysicalTargets[targetKey];
+                      const status = getPhysicalTargetStatus(checkedPhysicalTargets[targetKey]);
 
                       return (
                         <div
                           key={idx}
                           id={`physical-cardio-${day.dayNumber}-${idx}`}
                           onClick={() => onTogglePhysicalTarget(targetKey)}
-                          className={`flex items-center justify-between py-1.5 px-2 rounded-lg cursor-pointer transition-all border ${
-                            isChecked
-                              ? 'bg-emerald-950/30 border-emerald-500/30 text-slate-400'
+                          className={`group flex items-center justify-between py-2 px-2.5 rounded-lg cursor-pointer transition-all border ${
+                            status === 'green'
+                              ? 'bg-emerald-950/30 border-emerald-500/35 text-slate-300'
+                              : status === 'red'
+                              ? 'bg-rose-950/30 border-rose-500/35 text-rose-200'
                               : 'bg-slate-900/40 hover:bg-slate-800/60 border-slate-800/60 text-slate-200'
                           }`}
                         >
-                          <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                          <div className="flex items-center gap-2.5 min-w-0 pr-2 flex-1">
                             <button
                               type="button"
                               aria-label={`Toggle target ${item.name}`}
-                              className="flex-shrink-0 text-slate-500 hover:text-emerald-400 transition-colors"
+                              className="flex-shrink-0 transition-colors"
                             >
-                              {isChecked ? (
+                              {status === 'green' ? (
                                 <CheckCircle2 className="w-4 h-4 text-emerald-400 fill-emerald-400/20" />
+                              ) : status === 'red' ? (
+                                <XCircle className="w-4 h-4 text-rose-400 fill-rose-400/20" />
                               ) : (
-                                <Circle className="w-4 h-4 text-slate-500 hover:text-emerald-400" />
+                                <Circle className="w-4 h-4 text-slate-500 group-hover:text-emerald-400" />
                               )}
                             </button>
                             <span
                               className={`text-xs font-sans truncate ${
-                                isChecked ? 'line-through text-slate-400' : 'text-slate-200 font-medium'
+                                status === 'green'
+                                  ? 'line-through text-slate-400'
+                                  : status === 'red'
+                                  ? 'text-rose-200 font-medium'
+                                  : 'text-slate-200 font-medium'
                               }`}
                             >
                               {item.name}
@@ -490,14 +671,57 @@ export const DailyLogsSection: React.FC<DailyLogsSectionProps> = ({
                                 </span>
                               )}
                             </span>
+                            {status === 'green' && (
+                              <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                                DONE
+                              </span>
+                            )}
+                            {status === 'red' && (
+                              <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">
+                                NOT DONE
+                              </span>
+                            )}
                           </div>
-                          <span
-                            className={`font-bold font-mono text-xs flex-shrink-0 ${
-                              isChecked ? 'text-emerald-400/70' : 'text-amber-300'
-                            }`}
-                          >
-                            {item.value}
-                          </span>
+
+                          <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <span
+                              className={`font-bold font-mono text-xs ${
+                                status === 'green'
+                                  ? 'text-emerald-400/80'
+                                  : status === 'red'
+                                  ? 'text-rose-400'
+                                  : 'text-amber-300'
+                              }`}
+                            >
+                              {item.value}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => onSetPhysicalTargetStatus?.(targetKey, 'green')}
+                                title="Mark Done (Green)"
+                                className={`p-1 rounded border transition-all ${
+                                  status === 'green'
+                                    ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-bold shadow'
+                                    : 'bg-slate-900 hover:bg-emerald-950/60 border-slate-700 text-emerald-400/70 hover:text-emerald-300'
+                                }`}
+                              >
+                                <Check className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => onSetPhysicalTargetStatus?.(targetKey, 'red')}
+                                title="Mark Not Done (Red)"
+                                className={`p-1 rounded border transition-all ${
+                                  status === 'red'
+                                    ? 'bg-rose-500 text-white border-rose-400 font-bold shadow'
+                                    : 'bg-slate-900 hover:bg-rose-950/60 border-slate-700 text-rose-400/70 hover:text-rose-300'
+                                }`}
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       );
                     })}
@@ -517,46 +741,97 @@ export const DailyLogsSection: React.FC<DailyLogsSectionProps> = ({
                   <div className="space-y-1.5 text-xs font-mono">
                     {day.coreLegsAndPull.map((item, idx) => {
                       const targetKey = `day-${day.dayNumber}-core-${idx}`;
-                      const isChecked = !!checkedPhysicalTargets[targetKey];
+                      const status = getPhysicalTargetStatus(checkedPhysicalTargets[targetKey]);
 
                       return (
                         <div
                           key={idx}
                           id={`physical-core-${day.dayNumber}-${idx}`}
                           onClick={() => onTogglePhysicalTarget(targetKey)}
-                          className={`flex items-center justify-between py-1.5 px-2 rounded-lg cursor-pointer transition-all border ${
-                            isChecked
-                              ? 'bg-emerald-950/30 border-emerald-500/30 text-slate-400'
+                          className={`group flex items-center justify-between py-2 px-2.5 rounded-lg cursor-pointer transition-all border ${
+                            status === 'green'
+                              ? 'bg-emerald-950/30 border-emerald-500/35 text-slate-300'
+                              : status === 'red'
+                              ? 'bg-rose-950/30 border-rose-500/35 text-rose-200'
                               : 'bg-slate-900/40 hover:bg-slate-800/60 border-slate-800/60 text-slate-200'
                           }`}
                         >
-                          <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                          <div className="flex items-center gap-2.5 min-w-0 pr-2 flex-1">
                             <button
                               type="button"
                               aria-label={`Toggle target ${item.name}`}
-                              className="flex-shrink-0 text-slate-500 hover:text-emerald-400 transition-colors"
+                              className="flex-shrink-0 transition-colors"
                             >
-                              {isChecked ? (
+                              {status === 'green' ? (
                                 <CheckCircle2 className="w-4 h-4 text-emerald-400 fill-emerald-400/20" />
+                              ) : status === 'red' ? (
+                                <XCircle className="w-4 h-4 text-rose-400 fill-rose-400/20" />
                               ) : (
-                                <Circle className="w-4 h-4 text-slate-500 hover:text-emerald-400" />
+                                <Circle className="w-4 h-4 text-slate-500 group-hover:text-emerald-400" />
                               )}
                             </button>
                             <span
                               className={`text-xs font-sans truncate ${
-                                isChecked ? 'line-through text-slate-400' : 'text-slate-200 font-medium'
+                                status === 'green'
+                                  ? 'line-through text-slate-400'
+                                  : status === 'red'
+                                  ? 'text-rose-200 font-medium'
+                                  : 'text-slate-200 font-medium'
                               }`}
                             >
                               {item.name}
                             </span>
+                            {status === 'green' && (
+                              <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                                DONE
+                              </span>
+                            )}
+                            {status === 'red' && (
+                              <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">
+                                NOT DONE
+                              </span>
+                            )}
                           </div>
-                          <span
-                            className={`font-bold font-mono text-xs flex-shrink-0 ${
-                              isChecked ? 'text-emerald-400/70' : 'text-emerald-400'
-                            }`}
-                          >
-                            {item.value}
-                          </span>
+
+                          <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <span
+                              className={`font-bold font-mono text-xs ${
+                                status === 'green'
+                                  ? 'text-emerald-400/80'
+                                  : status === 'red'
+                                  ? 'text-rose-400'
+                                  : 'text-emerald-400'
+                              }`}
+                            >
+                              {item.value}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => onSetPhysicalTargetStatus?.(targetKey, 'green')}
+                                title="Mark Done (Green)"
+                                className={`p-1 rounded border transition-all ${
+                                  status === 'green'
+                                    ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-bold shadow'
+                                    : 'bg-slate-900 hover:bg-emerald-950/60 border-slate-700 text-emerald-400/70 hover:text-emerald-300'
+                                }`}
+                              >
+                                <Check className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => onSetPhysicalTargetStatus?.(targetKey, 'red')}
+                                title="Mark Not Done (Red)"
+                                className={`p-1 rounded border transition-all ${
+                                  status === 'red'
+                                    ? 'bg-rose-500 text-white border-rose-400 font-bold shadow'
+                                    : 'bg-slate-900 hover:bg-rose-950/60 border-slate-700 text-rose-400/70 hover:text-rose-300'
+                                }`}
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       );
                     })}
